@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
-import { FileBarChart2, Download, TrendingUp, TrendingDown, DollarSign, ArrowLeftRight } from 'lucide-react';
+import { ChartBar as FileBarChart2, Download, TrendingUp, TrendingDown, DollarSign, ArrowLeftRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 
 type MonthlyRow = { month: string; volume: number; transactions: number; fraud: number };
@@ -15,7 +15,20 @@ const reportTypes = [
 ];
 
 export default function ReportsPage() {
+  const [monthlyData, setMonthlyData] = useState<MonthlyRow[]>([]);
   const [activeReport, setActiveReport] = useState('transaction');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      const res = await fetch('/api/analytics/volume?range=month&interval=monthly');
+      const json = await res.json();
+      setMonthlyData(json.data ?? []);
+      setLoading(false);
+    }
+    fetchData();
+  }, []);
 
   return (
     <AppLayout pageTitle="Reports" pageSubtitle="Analytics reports and exportable data summaries">
@@ -39,6 +52,9 @@ export default function ReportsPage() {
         {/* Volume Chart */}
         <div className="xl:col-span-2 bg-card border border-border rounded-xl p-4">
           <h3 className="font-semibold text-foreground mb-4">Monthly Transaction Volume ($M)</h3>
+          {loading ? (
+            <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">Loading chart...</div>
+          ) : (
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={monthlyData} barSize={28}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -48,11 +64,15 @@ export default function ReportsPage() {
               <Bar dataKey="volume" fill="var(--primary)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+          )}
         </div>
 
         {/* Fraud Trend */}
         <div className="bg-card border border-border rounded-xl p-4">
           <h3 className="font-semibold text-foreground mb-4">Fraud Alerts Trend</h3>
+          {loading ? (
+            <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">Loading chart...</div>
+          ) : (
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -62,6 +82,7 @@ export default function ReportsPage() {
               <Line type="monotone" dataKey="fraud" stroke="#ef4444" strokeWidth={2} dot={{ r: 4, fill: '#ef4444' }} />
             </LineChart>
           </ResponsiveContainer>
+          )}
         </div>
       </div>
 
