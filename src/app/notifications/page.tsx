@@ -1,27 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import AppLayout from '@/components/AppLayout';
 import { Bell, ShieldAlert, ArrowLeftRight, Info, CheckCheck, Trash2 } from 'lucide-react';
 
 interface Notification {
   id: string;
+  notification_code: string;
   type: 'fraud' | 'transaction' | 'system' | 'info';
   title: string;
   message: string;
-  timestamp: string;
   read: boolean;
+  created_at: string;
 }
-
-const mockNotifications: Notification[] = [
-  { id: 'N-001', type: 'fraud', title: 'Critical Fraud Alert', message: 'Transaction TXN-8821 flagged with risk score 94. Immediate review required.', timestamp: '2026-05-10 02:45', read: false },
-  { id: 'N-002', type: 'fraud', title: 'High Risk Transaction', message: 'TXN-8819 from GlobalMart flagged for card-not-present with new device.', timestamp: '2026-05-10 02:30', read: false },
-  { id: 'N-003', type: 'transaction', title: 'Large Transaction Detected', message: 'Transaction of $7,500 processed by LuxuryGoods exceeds threshold.', timestamp: '2026-05-10 01:00', read: false },
-  { id: 'N-004', type: 'system', title: 'System Maintenance Scheduled', message: 'Planned maintenance on May 12, 2026 from 02:00–04:00 UTC.', timestamp: '2026-05-09 18:00', read: true },
-  { id: 'N-005', type: 'info', title: 'Daily Summary Ready', message: 'Your daily transaction summary for May 9 is now available in Reports.', timestamp: '2026-05-09 08:00', read: true },
-  { id: 'N-006', type: 'transaction', title: 'Settlement Completed', message: 'Batch settlement of $284,500 for TechStore Pro completed successfully.', timestamp: '2026-05-09 06:30', read: true },
-  { id: 'N-007', type: 'fraud', title: 'Fraud Alert Resolved', message: 'Alert FA-003 for QuickPay Ltd has been reviewed and dismissed.', timestamp: '2026-05-09 05:00', read: true },
-];
 
 const typeConfig: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
   fraud: { icon: <ShieldAlert size={16} />, color: 'text-red-600', bg: 'bg-red-50' },
@@ -31,29 +22,57 @@ const typeConfig: Record<string, { icon: React.ReactNode; color: string; bg: str
 };
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [loading, setLoading] = useState(true);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const displayed = filter === 'unread' ? notifications.filter(n => !n.read) : notifications;
+  const fetchNotifications = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (filter === 'unread') params.set('unread', 'true');
+    const res = await fetch(`/api/notifications?${params.toString()}`);
+    const json = await res.json();
+    setNotifications(json.data ?? []);
+    setLoading(false);
+  }, [filter]);
 
-  const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  const markRead = (id: string) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  const dismiss = (id: string) => setNotifications(prev => prev.filter(n => n.id !== id));
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const displayed = filter === 'unread' ? notifications.filter((n) => !n.read) : notifications;
+
+  const markAllRead = async () => {
+    await fetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ markAll: true }) });
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const markRead = async (id: string) => {
+    await fetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, read: true }) });
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  };
+
+  const dismiss = async (id: string) => {
+    await fetch(`/api/notifications?id=${id}`, { method: 'DELETE' });
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
 
   return (
     <AppLayout pageTitle="Notifications" pageSubtitle="Stay updated on alerts, transactions, and system events">
       <div className="max-w-3xl">
-        {/* Header Actions */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex gap-1">
-            {(['all', 'unread'] as const).map(f => (
+            {(['all', 'unread'] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-all ${filter === f ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
               >
-                {f} {f === 'unread' && unreadCount > 0 && <span className="ml-1 bg-red-500 text-white text-xs rounded-full px-1.5">{unreadCount}</span>}
+                {f}{' '}
+                {f === 'unread' && unreadCount > 0 && (
+                  <span className="ml-1 bg-red-500 text-white text-xs rounded-full px-1.5">{unreadCount}</span>
+                )}
               </button>
             ))}
           </div>
@@ -64,15 +83,15 @@ export default function NotificationsPage() {
           )}
         </div>
 
-        {/* Notification List */}
         <div className="space-y-2">
-          {displayed.length === 0 && (
+          {loading && <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">Loading notifications...</div>}
+          {!loading && displayed.length === 0 && (
             <div className="bg-card border border-border rounded-xl p-8 text-center text-muted-foreground">
               <Bell size={32} className="mx-auto mb-2 opacity-30" />
               <p className="text-sm">No notifications</p>
             </div>
           )}
-          {displayed.map(notif => {
+          {displayed.map((notif) => {
             const config = typeConfig[notif.type];
             return (
               <div
@@ -88,7 +107,9 @@ export default function NotificationsPage() {
                     {!notif.read && <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{notif.message}</p>
-                  <p className="text-xs text-muted-foreground mt-1.5">{notif.timestamp}</p>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    {new Date(notif.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </p>
                 </div>
                 <div className="flex flex-col gap-1 flex-shrink-0">
                   {!notif.read && (

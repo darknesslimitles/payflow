@@ -1,5 +1,9 @@
-export function createClient(...args) {
-  // eslint-disable-next-line no-console
-  console.warn('Placeholder: createClient is not implemented yet.', args);
-  return null;
+import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from './types';
+
+export function createClient() {
+  return createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 }

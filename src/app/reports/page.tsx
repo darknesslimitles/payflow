@@ -1,19 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
 import { FileBarChart2, Download, TrendingUp, TrendingDown, DollarSign, ArrowLeftRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 
-const monthlyData = [
-  { month: 'Nov', volume: 1.8, transactions: 8200, fraud: 12 },
-  { month: 'Dec', volume: 2.4, transactions: 10500, fraud: 18 },
-  { month: 'Jan', volume: 2.1, transactions: 9800, fraud: 14 },
-  { month: 'Feb', volume: 2.6, transactions: 11200, fraud: 9 },
-  { month: 'Mar', volume: 3.0, transactions: 12800, fraud: 11 },
-  { month: 'Apr', volume: 2.8, transactions: 12100, fraud: 8 },
-  { month: 'May', volume: 3.2, transactions: 13500, fraud: 7 },
-];
+type MonthlyRow = { month: string; volume: number; transactions: number; fraud: number };
 
 const reportTypes = [
   { id: 'transaction', label: 'Transaction Summary', description: 'Full ledger of all transactions with filters', icon: <ArrowLeftRight size={18} /> },
